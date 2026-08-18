@@ -1,0 +1,21 @@
+# Environment / secrets
+.env
+*.env
+
+# Java / Maven
+target/
+*.class
+*.jar
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
