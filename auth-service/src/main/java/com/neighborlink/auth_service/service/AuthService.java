@@ -7,7 +7,9 @@ import com.neighborlink.auth_service.dto.RegisterRequest;
 import com.neighborlink.auth_service.entity.RefreshToken;
 import com.neighborlink.auth_service.entity.Role;
 import com.neighborlink.auth_service.entity.User;
+import com.neighborlink.auth_service.exception.AuthException;
 import com.neighborlink.auth_service.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +29,7 @@ public class AuthService {
     }
 
     public void register(RegisterRequest request){
-        if(userRepository.existsByEmail(request.email())) throw new RuntimeException("Email already exists");
+        if(userRepository.existsByEmail(request.email())) throw new AuthException(HttpStatus.CONFLICT,"Email already exists");
 
         User user = User.builder()
                 .name(request.name())
@@ -41,8 +43,8 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request){
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Invalid email/password"));
-        if(!passwordEncoder.matches(request.password(), user.getPassword())) throw new RuntimeException("Invalid password");
+                .orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED,"Invalid email/password"));
+        if(!passwordEncoder.matches(request.password(), user.getPassword())) throw new AuthException(HttpStatus.UNAUTHORIZED,"Invalid password");
         String accessToken = jwtService.generateToken(
                 user.getId(),
                 user.getEmail(),
@@ -65,7 +67,7 @@ public class AuthService {
 
         User user = userRepository.findById(storedToken.getUserID())
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new AuthException(HttpStatus.NOT_FOUND,"User not found"));
 
         refreshTokenService.revokeRefreshToken(storedToken);
 

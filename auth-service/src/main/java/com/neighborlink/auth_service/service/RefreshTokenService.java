@@ -2,8 +2,10 @@ package com.neighborlink.auth_service.service;
 
 import com.neighborlink.auth_service.entity.RefreshToken;
 import com.neighborlink.auth_service.entity.User;
+import com.neighborlink.auth_service.exception.AuthException;
 import com.neighborlink.auth_service.repository.RefreshTokenRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -58,12 +60,12 @@ public class RefreshTokenService {
         RefreshToken storedToken = refreshTokenRepository
                 .findByTokenHash(tokenHash)
                 .orElseThrow(()->
-                        new RuntimeException("Invalid refresh token"));
+                        new AuthException(HttpStatus.UNAUTHORIZED,"Invalid refresh token"));
         if(storedToken.isRevoked()){
-            throw new RuntimeException("Refresh token has been revoked");
+            throw new AuthException(HttpStatus.UNAUTHORIZED,"Refresh token has been revoked");
         }
         if(storedToken.getExpiryAt().isBefore(LocalDateTime.now())){
-            throw new RuntimeException("Refresh token has expired");
+            throw new AuthException(HttpStatus.UNAUTHORIZED,"Refresh token has expired");
         }
         return storedToken;
     }
@@ -80,12 +82,10 @@ public class RefreshTokenService {
         RefreshToken storedToken = refreshTokenRepository
                 .findByTokenHash(tokenHash)
                 .orElseThrow(() ->
-                        new RuntimeException("Invalid refresh token"));
+                        new AuthException(HttpStatus.UNAUTHORIZED,"Invalid refresh token"));
 
         if (storedToken.isRevoked()) {
-            throw new RuntimeException(
-                    "Refresh token has already been revoked"
-            );
+            throw new AuthException(HttpStatus.UNAUTHORIZED,"Refresh token has already been revoked");
         }
 
         storedToken.setRevoked(true);
@@ -106,9 +106,7 @@ public class RefreshTokenService {
 
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(
-                    "SHA-256 algorithm is not available",
-                    e
-            );
+                    "SHA-256 algorithm is not available", e);
         }
     }
 }
