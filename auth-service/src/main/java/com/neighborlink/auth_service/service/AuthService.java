@@ -2,7 +2,9 @@ package com.neighborlink.auth_service.service;
 
 import com.neighborlink.auth_service.dto.LoginRequest;
 import com.neighborlink.auth_service.dto.LoginResponse;
+import com.neighborlink.auth_service.dto.RefreshRequest;
 import com.neighborlink.auth_service.dto.RegisterRequest;
+import com.neighborlink.auth_service.entity.RefreshToken;
 import com.neighborlink.auth_service.entity.Role;
 import com.neighborlink.auth_service.entity.User;
 import com.neighborlink.auth_service.repository.UserRepository;
@@ -14,12 +16,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService  jwtService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenService refreshTokenService) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     public void register(RegisterRequest request){
@@ -39,15 +43,49 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Invalid email/password"));
         if(!passwordEncoder.matches(request.password(), user.getPassword())) throw new RuntimeException("Invalid password");
-        String token = jwtService.generateToken(
+        String accessToken = jwtService.generateToken(
                 user.getId(),
                 user.getEmail(),
                 user.getRole().name()
         );
+        String refreshToken = refreshTokenService.createRefreshToken(user);
         return new LoginResponse(
-                token,
+                accessToken,
+                refreshToken,
                 "Bearer",
                 user.getRole().name()
         );
+    }
+    public LoginResponse refresh(RefreshRequest request) {
+
+        RefreshToken storedToken =
+                refreshTokenService.validateRefreshToken(
+                        request.refreshToken()
+                );
+
+        User user = userRepository.findById(storedToken.getUserID())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        refreshTokenService.revokeRefreshToken(storedToken);
+
+        String newAccessToken = jwtService.generateToken(
+                user.getId(),
+                user.getEmail(),
+                user.getRole().name()
+        );
+
+        String newRefreshToken =
+                refreshTokenService.createRefreshToken(user);
+        return new LoginResponse(
+                newAccessToken,
+                newRefreshToken,
+                "Bearer",
+                user.getRole().name()
+        );
+    }
+
+    public void logout(String refreshToken){
+        refreshTokenService.logout(refreshToken);
     }
 }
