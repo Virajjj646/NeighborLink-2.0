@@ -20,7 +20,7 @@ public class AdminBootstrap implements CommandLineRunner {
     @Value("${INITIAL_ADMIN_PASSWORD:}")
     private String adminPassword;
 
-    @Value("${INITIAL_ADMIN_NAME:System Admin}")
+    @Value("${INITIAL_ADMIN_NAME}")
     private String adminName;
 
     public AdminBootstrap(
@@ -65,8 +65,5 @@ public class AdminBootstrap implements CommandLineRunner {
 
         userRepository.save(admin);
 
-        System.out.println(
-                "Initial ADMIN account created: " + adminEmail
-        );
     }
 }

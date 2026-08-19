@@ -25,7 +25,7 @@ public class RefreshTokenService {
 
     public RefreshTokenService(
             RefreshTokenRepository refreshTokenRepository,
-            @Value("${JWT_REFRESH_EXPIRATION:604800000}") long refreshTokenExpiration
+            @Value("${JWT_REFRESH_EXPIRATION}") long refreshTokenExpiration
     ) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenExpiration = refreshTokenExpiration;

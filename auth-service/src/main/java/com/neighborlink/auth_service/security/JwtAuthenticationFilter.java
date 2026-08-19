@@ -34,8 +34,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         String token = authHeader.substring(7);
-        System.out.println("TOKEN RECEIVED: " + token);
-        System.out.println("TOKEN VALID: " + jwtService.isTokenValid(token));
         if(!jwtService.isTokenValid(token)){
             filterChain.doFilter(request, response);
             return;
@@ -43,9 +41,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String userId = jwtService.extractUserId(token);
         String role = jwtService.extractRole(token);
-
-        System.out.println("USER ID: " + userId);
-        System.out.println("ROLE FROM JWT: " + role);
 
         var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
         var authentication =
@@ -58,12 +53,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         SecurityContextHolder
                 .getContext()
                 .setAuthentication(authentication);
-
-        System.out.println("AUTHENTICATED: "
-                + SecurityContextHolder.getContext().getAuthentication().isAuthenticated());
-
-        System.out.println("AUTHORITIES: "
-                + SecurityContextHolder.getContext().getAuthentication().getAuthorities());
 
         filterChain.doFilter(request, response);
     }
