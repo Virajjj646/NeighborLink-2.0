@@ -19,13 +19,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService  jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final UserServiceClient userServiceClient;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenService refreshTokenService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenService refreshTokenService, UserServiceClient userServiceClient) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.userServiceClient = userServiceClient;
     }
 
     public void register(RegisterRequest request){
@@ -38,7 +40,24 @@ public class AuthService {
                 .role(Role.USER)
                 .build();
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        try {
+
+            userServiceClient.createProfile(
+                    savedUser.getId(),
+                    savedUser.getName()
+            );
+
+        } catch (Exception exception) {
+
+            userRepository.delete(savedUser);
+
+            throw new AuthException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Unable to create user profile"
+            );
+        }
     }
 
     public LoginResponse login(LoginRequest request){
