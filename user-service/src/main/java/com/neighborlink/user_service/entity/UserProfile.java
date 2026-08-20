@@ -21,7 +21,7 @@ public class UserProfile {
     @Column(name = "display_name", nullable = false)
     private String displayName;
 
-    @Column(nullable = false)
+    @Column
     private String phone;
 
     @Column(name = "profile_image")
