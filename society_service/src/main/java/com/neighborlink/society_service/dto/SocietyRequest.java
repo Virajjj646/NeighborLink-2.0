@@ -10,6 +10,7 @@ import lombok.*;
 @Builder
 public class SocietyRequest {
 
+    @NotBlank(message = "Society name is required")
     private String name;
 
     private String addressReference;
