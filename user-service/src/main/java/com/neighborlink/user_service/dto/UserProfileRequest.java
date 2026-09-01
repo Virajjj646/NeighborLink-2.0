@@ -7,7 +7,6 @@ public record UserProfileRequest(
         @NotBlank(message = "Display name is required")
         String displayName,
 
-        @NotBlank(message = "Phone is required")
         String phone,
 
         String profileImage,

@@ -1,14 +1,14 @@
 package com.neighborlink.user_service.controller;
 
-import com.neighborlink.user_service.dto.CreateUserProfileRequest;
-import com.neighborlink.user_service.dto.UserProfileRequest;
-import com.neighborlink.user_service.dto.UserProfileResponse;
+import com.neighborlink.user_service.dto.*;
 import com.neighborlink.user_service.service.UserProfileService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 public class UserProfileController {
@@ -37,5 +37,14 @@ public class UserProfileController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(userProfileService.createProfile(request));
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<List<PublicUserProfileResponse>> getPublicProfiles(
+            @Valid @RequestBody BatchProfileRequest request) {
+
+        return ResponseEntity.ok(
+                userProfileService.getPublicProfiles(request.userIds())
+        );
     }
 }

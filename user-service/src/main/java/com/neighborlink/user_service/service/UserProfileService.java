@@ -1,16 +1,21 @@
 package com.neighborlink.user_service.service;
 
 import com.neighborlink.user_service.dto.CreateUserProfileRequest;
+import com.neighborlink.user_service.dto.PublicUserProfileResponse;
 import com.neighborlink.user_service.dto.UserProfileRequest;
 import com.neighborlink.user_service.dto.UserProfileResponse;
 import com.neighborlink.user_service.entity.UserProfile;
 import com.neighborlink.user_service.exception.UserServiceException;
 import com.neighborlink.user_service.repository.UserProfileRepository;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 public class UserProfileService {
@@ -106,5 +111,17 @@ public class UserProfileService {
                 profile.getCreatedAt(),
                 profile.getUpdatedAt()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<PublicUserProfileResponse> getPublicProfiles(List<String> userIds){
+        return userProfileRepository.findAllById(userIds)
+                .stream()
+                .map(profile->new PublicUserProfileResponse(
+                        profile.getUserId(),
+                        profile.getDisplayName(),
+                        profile.getProfileImage()
+                ))
+                .toList();
     }
 }
