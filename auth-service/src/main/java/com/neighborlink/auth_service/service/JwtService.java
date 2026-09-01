@@ -37,7 +37,7 @@ public class JwtService {
 
     public String extractUserId(String token){
         return extractALlClaims(token)
-                .get("sub",String.class);
+                .getSubject();
     }
 
     public String extractEmail(String token) {

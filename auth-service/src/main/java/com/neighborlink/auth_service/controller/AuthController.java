@@ -1,15 +1,14 @@
 package com.neighborlink.auth_service.controller;
 
-import com.neighborlink.auth_service.dto.LoginRequest;
-import com.neighborlink.auth_service.dto.LoginResponse;
-import com.neighborlink.auth_service.dto.RefreshRequest;
-import com.neighborlink.auth_service.dto.RegisterRequest;
+import com.neighborlink.auth_service.dto.*;
 import com.neighborlink.auth_service.entity.RefreshToken;
 import com.neighborlink.auth_service.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 public class AuthController {
@@ -21,11 +20,10 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request){
-        authService.register(request);
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request){
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body("User registered successfully");
+                .body(authService.register(request));
     }
 
     @PostMapping("/login")
@@ -45,5 +43,10 @@ public class AuthController {
     public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest request){
         authService.logout(request.refreshToken());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/admin/users")
+    public ResponseEntity<List<UserSummaryResponse>> getAllUsers(){
+        return ResponseEntity.ok(authService.getAllUsers());
     }
 }

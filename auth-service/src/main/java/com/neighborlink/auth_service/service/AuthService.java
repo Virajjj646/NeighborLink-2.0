@@ -1,9 +1,6 @@
 package com.neighborlink.auth_service.service;
 
-import com.neighborlink.auth_service.dto.LoginRequest;
-import com.neighborlink.auth_service.dto.LoginResponse;
-import com.neighborlink.auth_service.dto.RefreshRequest;
-import com.neighborlink.auth_service.dto.RegisterRequest;
+import com.neighborlink.auth_service.dto.*;
 import com.neighborlink.auth_service.entity.RefreshToken;
 import com.neighborlink.auth_service.entity.Role;
 import com.neighborlink.auth_service.entity.User;
@@ -12,6 +9,8 @@ import com.neighborlink.auth_service.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class AuthService {
@@ -30,7 +29,7 @@ public class AuthService {
         this.userServiceClient = userServiceClient;
     }
 
-    public void register(RegisterRequest request){
+    public RegisterResponse register(RegisterRequest request){
         if(userRepository.existsByEmail(request.email())) throw new AuthException(HttpStatus.CONFLICT,"Email already exists");
 
         User user = User.builder()
@@ -58,6 +57,13 @@ public class AuthService {
                     "Unable to create user profile"
             );
         }
+
+        return new RegisterResponse(
+                savedUser.getId(),
+                savedUser.getName(),
+                savedUser.getEmail(),
+                savedUser.getRole().name()
+        );
     }
 
     public LoginResponse login(LoginRequest request){
@@ -71,6 +77,8 @@ public class AuthService {
         );
         String refreshToken = refreshTokenService.createRefreshToken(user);
         return new LoginResponse(
+                user.getId(),
+                user.getEmail(),
                 accessToken,
                 refreshToken,
                 "Bearer",
@@ -99,6 +107,8 @@ public class AuthService {
         String newRefreshToken =
                 refreshTokenService.createRefreshToken(user);
         return new LoginResponse(
+                user.getId(),
+                user.getEmail(),
                 newAccessToken,
                 newRefreshToken,
                 "Bearer",
@@ -108,5 +118,18 @@ public class AuthService {
 
     public void logout(String refreshToken){
         refreshTokenService.logout(refreshToken);
+    }
+
+    public List<UserSummaryResponse> getAllUsers(){
+        return userRepository.findAll()
+                .stream()
+                .map(user -> new UserSummaryResponse(
+                        user.getId(),
+                        user.getName(),
+                        user.getEmail(),
+                        user.getRole().name(),
+                        user.getCreatedAt()
+                ))
+                .toList();
     }
 }

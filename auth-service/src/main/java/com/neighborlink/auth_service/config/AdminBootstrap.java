@@ -20,7 +20,7 @@ public class AdminBootstrap implements CommandLineRunner {
     @Value("${INITIAL_ADMIN_PASSWORD:}")
     private String adminPassword;
 
-    @Value("${INITIAL_ADMIN_NAME}")
+    @Value("${INITIAL_ADMIN_NAME:System Admin}")
     private String adminName;
 
     public AdminBootstrap(
