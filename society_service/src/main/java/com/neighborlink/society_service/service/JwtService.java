@@ -50,23 +50,6 @@ public class JwtService {
             return true;
 
         } catch (Exception e) {
-
-            System.err.println(
-                    "===== SOCIETY JWT VALIDATION FAILED ====="
-            );
-
-            System.err.println(
-                    "Exception: " + e.getClass().getName()
-            );
-
-            System.err.println(
-                    "Message: " + e.getMessage()
-            );
-
-            System.err.println(
-                    "=========================================="
-            );
-
             return false;
         }
     }

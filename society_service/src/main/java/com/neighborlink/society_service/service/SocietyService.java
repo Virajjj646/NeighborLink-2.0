@@ -258,4 +258,30 @@ public class SocietyService {
             );
         }
     }
+
+    @Transactional
+    public MemberResponse joinSociety(Long societyId, String currentUserId) {
+
+        societyRepository.findById(societyId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Society not found with id: " + societyId
+                        ));
+
+        if (societyMemberRepository.existsBySocietyIdAndUserId(societyId, currentUserId)) {
+            throw new IllegalArgumentException(
+                    "You are already a member of this society"
+            );
+        }
+
+        SocietyMember member = SocietyMember.builder()
+                .societyId(societyId)
+                .userId(currentUserId)
+                .role(SocietyMemberRole.MEMBER)
+                .build();
+
+        return MemberResponse.from(
+                societyMemberRepository.save(member)
+        );
+    }
 }

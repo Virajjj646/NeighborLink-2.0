@@ -30,18 +30,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        System.out.println(
-                "Society Service Authorization header present: "
-                        + (authHeader != null)
-        );
-
         if (authHeader == null
                 || !authHeader.startsWith("Bearer ")) {
-
-            System.out.println(
-                    "Society Service: No Bearer token found"
-            );
-
             filterChain.doFilter(request, response);
             return;
         }
@@ -50,10 +40,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         boolean valid = jwtService.isTokenValid(token);
 
-        System.out.println(
-                "Society Service JWT valid: " + valid
-        );
-
         if (valid) {
 
             String userId =
@@ -61,14 +47,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             String role =
                     jwtService.extractRole(token);
-
-            System.out.println(
-                    "Society Service JWT userId: " + userId
-            );
-
-            System.out.println(
-                    "Society Service JWT role: " + role
-            );
 
             if (userId != null
                     && role != null
@@ -88,10 +66,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder
                         .getContext()
                         .setAuthentication(authentication);
-
-                System.out.println(
-                        "Society Service: Authentication set successfully"
-                );
             }
         }
 

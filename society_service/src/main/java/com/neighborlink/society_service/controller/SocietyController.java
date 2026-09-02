@@ -160,4 +160,11 @@ public class SocietyController {
                                 .replace("ROLE_", ""))
                 .orElse("USER");
     }
+
+    public ResponseEntity<MemberResponse> joinSociety(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(
+                        societyService.joinSociety(id, extractUserId(authentication))
+                );
+    }
 }
