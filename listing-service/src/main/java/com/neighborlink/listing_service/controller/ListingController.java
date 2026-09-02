@@ -41,13 +41,15 @@ public class ListingController {
     public ResponseEntity<List<ListingResponse>> getAllListings(
             @RequestParam(required = false) Long societyId,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) ListingStatus status) {
+            @RequestParam(required = false) ListingStatus status,
+            @RequestParam(required = false) String search) {
 
         return ResponseEntity.ok(
                 listingService.getAllListings(
                         societyId,
                         category,
-                        status
+                        status,
+                        search
                 )
         );
     }
@@ -116,5 +118,9 @@ public class ListingController {
                         authority.getAuthority()
                                 .replace("ROLE_", ""))
                 .orElse("USER");
+    }
+
+    public ResponseEntity<List<String>> getCategories(){
+        return ResponseEntity.ok(listingService.getCategories());
     }
 }

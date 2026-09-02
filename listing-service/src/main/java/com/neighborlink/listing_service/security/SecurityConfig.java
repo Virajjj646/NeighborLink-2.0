@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/",
+                                "/categories",
                                 "/{id}"
                         ).permitAll()
 

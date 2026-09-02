@@ -6,6 +6,7 @@ import com.neighborlink.listing_service.entity.Listing;
 import com.neighborlink.listing_service.entity.ListingStatus;
 import com.neighborlink.listing_service.exception.ListingNotFoundException;
 import com.neighborlink.listing_service.repository.ListingRepository;
+import com.neighborlink.listing_service.repository.ListingSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -44,67 +45,19 @@ public class ListingService {
     public List<ListingResponse> getAllListings(
             Long societyId,
             String category,
-            ListingStatus status) {
+            ListingStatus status,
+            String search) {
 
-        List<Listing> listings;
-
-        if (societyId != null
-                && category != null
-                && status != null) {
-
-            listings =
-                    listingRepository
-                            .findBySocietyIdAndCategoryIgnoreCaseAndStatus(
-                                    societyId,
-                                    category,
-                                    status
-                            );
-
-        } else if (societyId != null
-                && status != null) {
-
-            listings =
-                    listingRepository
-                            .findBySocietyIdAndStatus(
-                                    societyId,
-                                    status
-                            );
-
-        } else if (category != null
-                && status != null) {
-
-            listings =
-                    listingRepository
-                            .findByCategoryIgnoreCaseAndStatus(
-                                    category,
-                                    status
-                            );
-
-        } else if (societyId != null) {
-
-            listings =
-                    listingRepository
-                            .findBySocietyId(societyId);
-
-        } else if (category != null) {
-
-            listings =
-                    listingRepository
-                            .findByCategoryIgnoreCase(category);
-
-        } else if (status != null) {
-
-            listings =
-                    listingRepository
-                            .findByStatus(status);
-
-        } else {
-
-            listings =
-                    listingRepository.findAll();
-        }
-
-        return listings.stream()
+        return listingRepository
+                .findAll(
+                        ListingSpecifications.withFilters(
+                                societyId,
+                                category,
+                                status,
+                                search
+                        )
+                )
+                .stream()
                 .map(ListingResponse::from)
                 .toList();
     }
@@ -225,4 +178,10 @@ public class ListingService {
             );
         }
     }
+
+    @Transactional(readOnly = true)
+    public List<String> getCategories() {
+        return listingRepository.findDistinctCategories();
+    }
+
 }
