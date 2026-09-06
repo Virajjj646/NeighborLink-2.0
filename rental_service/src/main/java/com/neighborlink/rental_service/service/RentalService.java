@@ -1,6 +1,7 @@
 package com.neighborlink.rental_service.service;
 
 import com.neighborlink.rental_service.dto.ListingResponse;
+import com.neighborlink.rental_service.dto.RentalAvailabilityResponse;
 import com.neighborlink.rental_service.dto.RentalRequest;
 import com.neighborlink.rental_service.dto.RentalResponse;
 import com.neighborlink.rental_service.entity.Rental;
@@ -210,9 +211,12 @@ public class RentalService {
 
         Rental rental = findRental(id);
 
-        if (rental.getStatus() != RentalStatus.ACTIVE) {
+        // completeRental(...) — allow CONFIRMED as well as ACTIVE
+        if (rental.getStatus() != RentalStatus.CONFIRMED
+                && rental.getStatus() != RentalStatus.ACTIVE) {
+
             throw new InvalidRentalException(
-                    "Only ACTIVE rentals can be completed"
+                    "Only CONFIRMED or ACTIVE rentals can be completed"
             );
         }
 
@@ -243,15 +247,59 @@ public class RentalService {
                 rentalRepository.save(rental)
         );
     }
-
     @Transactional(readOnly = true)
     public List<RentalResponse> getRentalsByListing(
-            Long listingId) {
+            Long listingId,
+            String currentUserId,
+            String currentRole,
+            String authorizationHeader) {
+
+        if (!"ADMIN".equals(currentRole)) {
+
+            ListingResponse listing;
+
+            try {
+                listing = listingClient.getListing(listingId, authorizationHeader);
+            } catch (RestClientException ex) {
+                throw new InvalidRentalException(
+                        "Unable to verify listing ownership"
+                );
+            }
+
+            if (listing == null
+                    || !currentUserId.equals(listing.getOwnerId())) {
+
+                throw new AccessDeniedException(
+                        "You are not authorized to view rentals for this listing"
+                );
+            }
+        }
 
         return rentalRepository
                 .findByListingId(listingId)
                 .stream()
                 .map(RentalResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RentalAvailabilityResponse> getListingAvailability(Long listingId) {
+
+        return rentalRepository
+                .findByListingIdAndStatusIn(
+                        listingId,
+                        List.of(
+                                RentalStatus.PENDING,
+                                RentalStatus.PAYMENT_PENDING,
+                                RentalStatus.CONFIRMED,
+                                RentalStatus.ACTIVE
+                        )
+                )
+                .stream()
+                .map(rental -> new RentalAvailabilityResponse(
+                        rental.getStartDate(),
+                        rental.getEndDate()
+                ))
                 .toList();
     }
 
@@ -314,18 +362,62 @@ public class RentalService {
         );
     }
 
+    // cancelRentalInternal(...) — idempotent, and no longer requires CONFIRMED
     @Transactional
     public RentalResponse cancelRentalInternal(Long id) {
 
         Rental rental = findRental(id);
 
-        if (rental.getStatus() != RentalStatus.CONFIRMED) {
+        if (rental.getStatus() == RentalStatus.CANCELLED) {
+            return RentalResponse.from(rental);
+        }
+
+        if (rental.getStatus() == RentalStatus.COMPLETED) {
             throw new InvalidRentalException(
-                    "Only CONFIRMED rentals can be cancelled internally"
+                    "Completed rentals cannot be cancelled"
             );
         }
 
         rental.setStatus(RentalStatus.CANCELLED);
+
+        return RentalResponse.from(
+                rentalRepository.save(rental)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<RentalResponse> getAllRentals(
+            String currentRole,
+            RentalStatus status) {
+
+        if (!"ADMIN".equals(currentRole)) {
+            throw new AccessDeniedException(
+                    "Only ADMIN can list all rentals"
+            );
+        }
+
+        List<Rental> rentals = (status == null)
+                ? rentalRepository.findAll()
+                : rentalRepository.findByStatus(status);
+
+        return rentals.stream()
+                .map(RentalResponse::from)
+                .toList();
+    }
+
+    // new — makes PAYMENT_FAILED reachable
+    @Transactional
+    public RentalResponse failRentalInternal(Long id) {
+
+        Rental rental = findRental(id);
+
+        if (rental.getStatus() != RentalStatus.PAYMENT_PENDING) {
+            throw new InvalidRentalException(
+                    "Only PAYMENT_PENDING rentals can be marked payment failed"
+            );
+        }
+
+        rental.setStatus(RentalStatus.PAYMENT_FAILED);
 
         return RentalResponse.from(
                 rentalRepository.save(rental)

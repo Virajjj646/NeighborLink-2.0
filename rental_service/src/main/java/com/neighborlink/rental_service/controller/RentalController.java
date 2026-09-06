@@ -1,5 +1,6 @@
 package com.neighborlink.rental_service.controller;
 
+import com.neighborlink.rental_service.dto.RentalAvailabilityResponse;
 import com.neighborlink.rental_service.dto.RentalRequest;
 import com.neighborlink.rental_service.dto.RentalResponse;
 import com.neighborlink.rental_service.entity.RentalStatus;
@@ -64,12 +65,26 @@ public class RentalController {
 
     @GetMapping("/listing/{listingId}")
     public ResponseEntity<List<RentalResponse>> getRentalsByListing(
-            @PathVariable Long listingId) {
+            @PathVariable Long listingId,
+            Authentication authentication,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorizationHeader) {
 
         return ResponseEntity.ok(
                 rentalService.getRentalsByListing(
-                        listingId
+                        listingId,
+                        extractUserId(authentication),
+                        extractRole(authentication),
+                        authorizationHeader
                 )
+        );
+    }
+
+    @GetMapping("/listing/{listingId}/availability")
+    public ResponseEntity<List<RentalAvailabilityResponse>> getListingAvailability(
+            @PathVariable Long listingId) {
+
+        return ResponseEntity.ok(
+                rentalService.getListingAvailability(listingId)
         );
     }
 
@@ -148,6 +163,28 @@ public class RentalController {
 
         return ResponseEntity.ok(
                 rentalService.cancelRentalInternal(id)
+        );
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<RentalResponse>> getAllRentals(
+            @RequestParam(required = false) RentalStatus status,
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                rentalService.getAllRentals(
+                        extractRole(authentication),
+                        status
+                )
+        );
+    }
+
+    @PutMapping("/internal/{id}/fail")
+    public ResponseEntity<RentalResponse> failRentalInternal(
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                rentalService.failRentalInternal(id)
         );
     }
 }

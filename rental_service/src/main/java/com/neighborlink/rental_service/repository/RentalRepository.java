@@ -28,4 +28,9 @@ public interface RentalRepository extends JpaRepository<Rental, Long> {
             LocalDate endDate,
             LocalDate startDate
     );
+
+    List<Rental> findByListingIdAndStatusIn(
+            Long listingId,
+            List<RentalStatus> statuses
+    );
 }
