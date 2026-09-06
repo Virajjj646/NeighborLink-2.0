@@ -6,10 +6,12 @@ import com.neighborlink.rental_service.dto.RentalRequest;
 import com.neighborlink.rental_service.dto.RentalResponse;
 import com.neighborlink.rental_service.entity.Rental;
 import com.neighborlink.rental_service.entity.RentalStatus;
+import com.neighborlink.rental_service.event.RentalCancelledEvent;
 import com.neighborlink.rental_service.exception.InvalidRentalException;
 import com.neighborlink.rental_service.exception.RentalNotFoundException;
 import com.neighborlink.rental_service.repository.RentalRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,7 @@ public class RentalService {
     private final RentalRepository rentalRepository;
     private final ListingClient listingClient;
     private final PaymentClient paymentClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public RentalResponse createRental(
@@ -193,9 +196,13 @@ public class RentalService {
 
         rental.setStatus(RentalStatus.CANCELLED);
 
-        return RentalResponse.from(
-                rentalRepository.save(rental)
+        Rental savedRental = rentalRepository.save(rental);
+
+        eventPublisher.publishEvent(
+                new RentalCancelledEvent(savedRental.getId())
         );
+
+        return RentalResponse.from(savedRental);
     }
 
     @Transactional
@@ -349,9 +356,15 @@ public class RentalService {
 
         Rental rental = findRental(id);
 
-        if (rental.getStatus() != RentalStatus.PAYMENT_PENDING) {
+        if (rental.getStatus() == RentalStatus.CONFIRMED) {
+            return RentalResponse.from(rental);
+        }
+
+        if (rental.getStatus() != RentalStatus.PAYMENT_PENDING
+                && rental.getStatus() != RentalStatus.PAYMENT_FAILED) {
+
             throw new InvalidRentalException(
-                    "Only PAYMENT_PENDING rentals can be confirmed"
+                    "Only rentals awaiting payment can be confirmed"
             );
         }
 
@@ -405,11 +418,14 @@ public class RentalService {
                 .toList();
     }
 
-    // new — makes PAYMENT_FAILED reachable
     @Transactional
     public RentalResponse failRentalInternal(Long id) {
 
         Rental rental = findRental(id);
+
+        if (rental.getStatus() == RentalStatus.PAYMENT_FAILED) {
+            return RentalResponse.from(rental);
+        }
 
         if (rental.getStatus() != RentalStatus.PAYMENT_PENDING) {
             throw new InvalidRentalException(

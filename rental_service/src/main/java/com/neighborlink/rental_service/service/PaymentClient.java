@@ -57,4 +57,17 @@ public class PaymentClient {
             String idempotencyKey
     ) {
     }
+
+    public void refundForRental(Long rentalId) {
+
+        restClientBuilder
+                .baseUrl(paymentServiceUrl)
+                .build()
+                .post()
+                .uri("/internal/rental/{rentalId}/refund", rentalId)
+                .header("X-Internal-Service-Key", internalServiceKey)
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .retrieve()
+                .toBodilessEntity();
+    }
 }
