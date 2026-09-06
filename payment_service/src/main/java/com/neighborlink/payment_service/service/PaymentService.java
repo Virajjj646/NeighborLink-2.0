@@ -1,21 +1,24 @@
 package com.neighborlink.payment_service.service;
 
 import com.neighborlink.payment_service.dto.InternalPaymentRequest;
-import com.neighborlink.payment_service.dto.PaymentRequest;
 import com.neighborlink.payment_service.dto.PaymentResponse;
 import com.neighborlink.payment_service.entity.Payment;
 import com.neighborlink.payment_service.entity.PaymentStatus;
+import com.neighborlink.payment_service.event.PaymentInitiatedEvent;
 import com.neighborlink.payment_service.exception.PaymentException;
 import com.neighborlink.payment_service.exception.PaymentNotFoundException;
 import com.neighborlink.payment_service.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 
+
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,59 +26,8 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final RentalClient rentalClient;
+    private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional
-    public PaymentResponse createPayment(
-            PaymentRequest request,
-            String currentUserId) {
-
-        Payment existingPayment =
-                paymentRepository
-                        .findByIdempotencyKey(
-                                request.getIdempotencyKey()
-                        )
-                        .orElse(null);
-
-        if (existingPayment != null) {
-
-            if (!existingPayment.getUserId()
-                    .equals(currentUserId)) {
-
-                throw new AccessDeniedException(
-                        "Idempotency key belongs to another user"
-                );
-            }
-
-            return PaymentResponse.from(
-                    existingPayment
-            );
-        }
-
-        /*
-         * Temporary amount.
-         *
-         * Normal client-created payments should eventually
-         * be created through Rental Service.
-         *
-         * Payment must never trust an amount supplied
-         * directly by the frontend.
-         */
-        BigDecimal amount = BigDecimal.ZERO;
-
-        Payment payment = Payment.builder()
-                .rentalId(request.getRentalId())
-                .userId(currentUserId)
-                .amount(amount)
-                .status(PaymentStatus.CREATED)
-                .idempotencyKey(
-                        request.getIdempotencyKey()
-                )
-                .build();
-
-        return PaymentResponse.from(
-                paymentRepository.save(payment)
-        );
-    }
 
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(
@@ -201,13 +153,19 @@ public class PaymentService {
             );
         }
 
-        payment.setStatus(
-                PaymentStatus.FAILED
-        );
+        payment.setStatus(PaymentStatus.FAILED);
 
-        return PaymentResponse.from(
-                paymentRepository.save(payment)
-        );
+        Payment savedPayment = paymentRepository.save(payment);
+
+        try {
+            rentalClient.failRental(savedPayment.getRentalId());
+        } catch (RestClientException ex) {
+            throw new PaymentException(
+                    "Payment marked failed but rental update failed"
+            );
+        }
+
+        return PaymentResponse.from(savedPayment);
     }
 
     @Transactional
@@ -321,5 +279,153 @@ public class PaymentService {
         return PaymentResponse.from(
                 paymentRepository.save(payment)
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPaymentsByRental(
+            Long rentalId,
+            String currentUserId,
+            String currentRole) {
+
+        boolean isAdmin = "ADMIN".equals(currentRole);
+
+        return paymentRepository
+                .findByRentalId(rentalId)
+                .stream()
+                .filter(payment -> isAdmin
+                        || payment.getUserId().equals(currentUserId))
+                .map(PaymentResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public PaymentResponse initiatePayment(
+            Long paymentId,
+            String currentUserId) {
+
+        Payment payment = findPayment(paymentId);
+
+        if (!payment.getUserId().equals(currentUserId)) {
+            throw new AccessDeniedException(
+                    "You can only pay for your own rental"
+            );
+        }
+
+        if (payment.getStatus() != PaymentStatus.CREATED
+                && payment.getStatus() != PaymentStatus.FAILED) {
+
+            throw new PaymentException(
+                    "This payment cannot be started from its current state"
+            );
+        }
+
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setProviderReference(generateProviderReference());
+        payment.setProviderTransactionId(null);
+
+        Payment savedPayment = paymentRepository.save(payment);
+
+        eventPublisher.publishEvent(
+                new PaymentInitiatedEvent(savedPayment.getId())
+        );
+
+        return PaymentResponse.from(savedPayment);
+    }
+
+    /*
+     * Single settlement path. Used by the simulated provider and by
+     * the real provider callback. Never reachable from a user request.
+     */
+    @Transactional
+    public PaymentResponse settlePayment(
+            Long paymentId,
+            PaymentStatus result,
+            String providerTransactionId) {
+
+        if (result != PaymentStatus.SUCCESS
+                && result != PaymentStatus.FAILED) {
+
+            throw new PaymentException(
+                    "A provider result must be SUCCESS or FAILED"
+            );
+        }
+
+        Payment payment = findPayment(paymentId);
+
+        if (payment.getStatus() == result) {
+            // Providers retry callbacks. Settling twice is not an error.
+            return PaymentResponse.from(payment);
+        }
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new PaymentException(
+                    "Only PENDING payments can be settled"
+            );
+        }
+
+        payment.setStatus(result);
+        payment.setProviderTransactionId(providerTransactionId);
+
+        Payment savedPayment = paymentRepository.save(payment);
+
+        try {
+
+            if (result == PaymentStatus.SUCCESS) {
+                rentalClient.confirmRental(savedPayment.getRentalId());
+            } else {
+                rentalClient.failRental(savedPayment.getRentalId());
+            }
+
+        } catch (RestClientException ex) {
+
+            throw new PaymentException(
+                    "Payment settled but rental update failed"
+            );
+        }
+
+        return PaymentResponse.from(savedPayment);
+    }
+
+    @Transactional
+    public PaymentResponse settleByProviderReference(
+            String providerReference,
+            PaymentStatus result,
+            String providerTransactionId) {
+
+        Payment payment = paymentRepository
+                .findByProviderReference(providerReference)
+                .orElseThrow(() ->
+                        new PaymentNotFoundException(
+                                "No payment found for that provider reference"
+                        ));
+
+        return settlePayment(
+                payment.getId(),
+                result,
+                providerTransactionId
+        );
+    }
+
+    private String generateProviderReference() {
+
+        return "NLP-" + UUID.randomUUID()
+                .toString()
+                .replace("-", "")
+                .substring(0, 12)
+                .toUpperCase();
+    }
+
+    @Transactional
+    public void refundForRental(Long rentalId) {
+
+        paymentRepository.findByRentalId(rentalId)
+                .stream()
+                .filter(payment ->
+                        payment.getStatus() == PaymentStatus.SUCCESS)
+                .forEach(payment -> {
+
+                    payment.setStatus(PaymentStatus.REFUNDED);
+                    paymentRepository.save(payment);
+                });
     }
 }

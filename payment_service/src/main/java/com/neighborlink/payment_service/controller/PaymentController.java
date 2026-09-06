@@ -1,8 +1,8 @@
 package com.neighborlink.payment_service.controller;
 
 import com.neighborlink.payment_service.dto.InternalPaymentRequest;
-import com.neighborlink.payment_service.dto.PaymentRequest;
 import com.neighborlink.payment_service.dto.PaymentResponse;
+import com.neighborlink.payment_service.dto.ProviderCallbackRequest;
 import com.neighborlink.payment_service.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,21 +19,6 @@ import java.util.List;
 public class PaymentController {
 
     private final PaymentService paymentService;
-
-    @PostMapping
-    public ResponseEntity<PaymentResponse> createPayment(
-            @Valid @RequestBody PaymentRequest request,
-            Authentication authentication) {
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(
-                        paymentService.createPayment(
-                                request,
-                                authentication.getName()
-                        )
-                );
-    }
 
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPayment(
@@ -65,11 +50,6 @@ public class PaymentController {
             @PathVariable Long id,
             Authentication authentication) {
 
-        System.out.println("===== PAYMENT PENDING DEBUG =====");
-        System.out.println("User: " + authentication.getName());
-        System.out.println("Authorities: " + authentication.getAuthorities());
-        System.out.println("=================================");
-
         return ResponseEntity.ok(
                 paymentService.markPending(
                         id,
@@ -83,11 +63,6 @@ public class PaymentController {
             @PathVariable Long id,
             @RequestParam String providerTransactionId,
             Authentication authentication) {
-
-        System.out.println("===== PAYMENT SUCCESS DEBUG =====");
-        System.out.println("User: " + authentication.getName());
-        System.out.println("Authorities: " + authentication.getAuthorities());
-        System.out.println("================================");
 
         return ResponseEntity.ok(
                 paymentService.markSuccess(
@@ -149,5 +124,54 @@ public class PaymentController {
                                 request
                         )
                 );
+    }
+
+    @GetMapping("/rental/{rentalId}")
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByRental(
+            @PathVariable Long rentalId,
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentsByRental(
+                        rentalId,
+                        authentication.getName(),
+                        extractRole(authentication)
+                )
+        );
+    }
+
+    @PutMapping("/{id}/initiate")
+    public ResponseEntity<PaymentResponse> initiatePayment(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                paymentService.initiatePayment(
+                        id,
+                        authentication.getName()
+                )
+        );
+    }
+
+    @PostMapping("/internal/provider/callback")
+    public ResponseEntity<PaymentResponse> providerCallback(
+            @Valid @RequestBody ProviderCallbackRequest request) {
+
+        return ResponseEntity.ok(
+                paymentService.settleByProviderReference(
+                        request.providerReference(),
+                        request.status(),
+                        request.providerTransactionId()
+                )
+        );
+    }
+
+    @PostMapping("/internal/rental/{rentalId}/refund")
+    public ResponseEntity<Void> refundForRental(
+            @PathVariable Long rentalId) {
+
+        paymentService.refundForRental(rentalId);
+
+        return ResponseEntity.noContent().build();
     }
 }

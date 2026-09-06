@@ -25,4 +25,6 @@ public interface PaymentRepository
     List<Payment> findByRentalId(
             Long rentalId
     );
+
+    Optional<Payment> findByProviderReference(String providerReference);
 }

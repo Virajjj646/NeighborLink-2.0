@@ -55,4 +55,17 @@ public class RentalClient {
                 .retrieve()
                 .toBodilessEntity();
     }
+
+    public void failRental(Long rentalId) {
+
+        restClientBuilder
+                .baseUrl(rentalServiceUrl)
+                .build()
+                .put()
+                .uri("/internal/{id}/fail", rentalId)
+                .header("X-Internal-Service-Key", internalServiceKey)
+                .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                .retrieve()
+                .toBodilessEntity();
+    }
 }

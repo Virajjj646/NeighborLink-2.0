@@ -23,6 +23,7 @@ public class PaymentResponse {
     private String idempotencyKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String providerReference;
 
     public static PaymentResponse from(Payment payment) {
 
@@ -40,6 +41,7 @@ public class PaymentResponse {
                 )
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
+                .providerReference(payment.getProviderReference())
                 .build();
     }
 }

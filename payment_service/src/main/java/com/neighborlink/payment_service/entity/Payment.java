@@ -65,4 +65,7 @@ public class Payment {
 
         updatedAt = LocalDateTime.now();
     }
+
+    @Column(name = "provider_reference", unique = true)
+    private String providerReference;
 }

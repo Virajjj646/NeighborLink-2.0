@@ -66,12 +66,6 @@ public class JwtAuthenticationFilter
         String role =
                 claims.get("role", String.class);
 
-        System.out.println("===== JWT DEBUG =====");
-        System.out.println("User ID: " + userId);
-        System.out.println("Role from JWT: " + role);
-        System.out.println("Token valid: " + jwtService.isTokenValid(token));
-        System.out.println("=====================");
-
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         userId,
