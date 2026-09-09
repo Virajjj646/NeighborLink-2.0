@@ -248,6 +248,12 @@ public class RentalService {
 
         Rental rental = findRental(id);
 
+        if (rental.getStatus() == RentalStatus.COMPLETED) {
+            throw new InvalidRentalException(
+                    "Completed rentals cannot change status"
+            );
+        }
+
         rental.setStatus(newStatus);
 
         return RentalResponse.from(

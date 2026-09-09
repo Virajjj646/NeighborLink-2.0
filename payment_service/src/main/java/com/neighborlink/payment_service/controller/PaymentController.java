@@ -45,34 +45,6 @@ public class PaymentController {
         );
     }
 
-    @PutMapping("/{id}/pending")
-    public ResponseEntity<PaymentResponse> markPending(
-            @PathVariable Long id,
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                paymentService.markPending(
-                        id,
-                        extractRole(authentication)
-                )
-        );
-    }
-
-    @PutMapping("/{id}/success")
-    public ResponseEntity<PaymentResponse> markSuccess(
-            @PathVariable Long id,
-            @RequestParam String providerTransactionId,
-            Authentication authentication) {
-
-        return ResponseEntity.ok(
-                paymentService.markSuccess(
-                        id,
-                        providerTransactionId,
-                        extractRole(authentication)
-                )
-        );
-    }
-
     @PutMapping("/{id}/failed")
     public ResponseEntity<PaymentResponse> markFailed(
             @PathVariable Long id,

@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -55,85 +54,6 @@ public class PaymentService {
                 .stream()
                 .map(PaymentResponse::from)
                 .toList();
-    }
-
-    @Transactional
-    public PaymentResponse markPending(
-            Long paymentId,
-            String currentRole) {
-
-        requireAdmin(currentRole);
-
-        Payment payment = findPayment(paymentId);
-
-        if (payment.getStatus()
-                != PaymentStatus.CREATED) {
-
-            throw new PaymentException(
-                    "Only CREATED payments can become PENDING"
-            );
-        }
-
-        payment.setStatus(
-                PaymentStatus.PENDING
-        );
-
-        return PaymentResponse.from(
-                paymentRepository.save(payment)
-        );
-    }
-
-    @Transactional
-    public PaymentResponse markSuccess(
-            Long paymentId,
-            String providerTransactionId,
-            String currentRole) {
-
-        requireAdmin(currentRole);
-
-        Payment payment = findPayment(paymentId);
-
-        if (payment.getStatus()
-                != PaymentStatus.PENDING) {
-
-            throw new PaymentException(
-                    "Only PENDING payments can become SUCCESS"
-            );
-        }
-
-        payment.setStatus(
-                PaymentStatus.SUCCESS
-        );
-
-        payment.setProviderTransactionId(
-                providerTransactionId
-        );
-
-        Payment savedPayment =
-                paymentRepository.save(payment);
-
-        /*
-         * Payment is now successfully completed.
-         *
-         * Notify Rental Service so that the rental can
-         * move from PAYMENT_PENDING to CONFIRMED.
-         */
-        try {
-
-            rentalClient.confirmRental(
-                    savedPayment.getRentalId()
-            );
-
-        } catch (RestClientException ex) {
-
-            throw new PaymentException(
-                    "Payment succeeded but rental confirmation failed"
-            );
-        }
-
-        return PaymentResponse.from(
-                savedPayment
-        );
     }
 
     @Transactional
@@ -418,14 +338,18 @@ public class PaymentService {
     @Transactional
     public void refundForRental(Long rentalId) {
 
-        paymentRepository.findByRentalId(rentalId)
-                .stream()
-                .filter(payment ->
-                        payment.getStatus() == PaymentStatus.SUCCESS)
-                .forEach(payment -> {
+        paymentRepository.findByRentalId(rentalId).forEach(payment -> {
 
-                    payment.setStatus(PaymentStatus.REFUNDED);
-                    paymentRepository.save(payment);
-                });
+            PaymentStatus next = switch (payment.getStatus()) {
+                case SUCCESS -> PaymentStatus.REFUNDED;
+                case CREATED, PENDING -> PaymentStatus.FAILED;
+                default -> null;
+            };
+
+            if (next != null) {
+                payment.setStatus(next);
+                paymentRepository.save(payment);
+            }
+        });
     }
 }
