@@ -120,6 +120,7 @@ public class ListingController {
                 .orElse("USER");
     }
 
+    @GetMapping("/categories")
     public ResponseEntity<List<String>> getCategories(){
         return ResponseEntity.ok(listingService.getCategories());
     }
