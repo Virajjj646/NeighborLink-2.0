@@ -161,6 +161,8 @@ public class SocietyController {
                 .orElse("USER");
     }
 
+
+    @PostMapping("/{id}/join")
     public ResponseEntity<MemberResponse> joinSociety(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
